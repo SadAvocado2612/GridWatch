@@ -55,9 +55,6 @@ Urban centers globally suffer from severe traffic bottlenecking, driven heavily 
 ### Running the Application
 
 1.  **Clone the workspace** and navigate to the project root directory:
-    ```powershell
-    cd "d:\RandomHackathons\Flipkart Hackathon Round 2"
-    ```
 
 2.  **Install dependencies**:
     ```bash
