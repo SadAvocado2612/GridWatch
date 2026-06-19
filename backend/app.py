@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query, Depends, status
+from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPAuthorizationCredentials
@@ -47,6 +48,10 @@ app.add_middleware(
 
 # Mount the frontend directory to serve static assets
 app.mount("/frontend", StaticFiles(directory=os.path.join(project_root, "frontend"), html=True), name="frontend")
+
+@app.get("/")
+def redirect_to_frontend():
+    return RedirectResponse(url="/frontend/index.html")
 
 # Global cache for triage model statistics loaded at startup
 triage_stats_cache = {}
