@@ -1,0 +1,10 @@
+[build]
+  command = "node build.js"
+  publish = "frontend"
+
+# Netlify dev command for testing redirects locally using Netlify CLI
+[dev]
+  command = "python -m uvicorn backend.app:app --port 8000"
+  targetPort = 8000
+  port = 8888
+  publish = "frontend"

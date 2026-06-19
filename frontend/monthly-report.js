@@ -7,8 +7,8 @@ if (!sessionToken) {
 }
 
 const API_BASE = window.location.origin.includes('127.0.0.1') || window.location.origin.includes('localhost')
-    ? window.location.origin + '/api'
-    : 'http://localhost:8000/api';
+    ? (window.location.port === '8000' ? '/api' : 'http://localhost:8000/api')
+    : '/api';
 
 document.addEventListener('DOMContentLoaded', () => {
     loadReportData();
