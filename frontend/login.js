@@ -43,11 +43,25 @@
                     });
 
                     if (!res.ok) {
-                        const errData = await res.json();
-                        throw new Error(errData.detail || 'Authentication failed');
+                        let errMsg = 'Authentication failed';
+                        const contentType = res.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            try {
+                                const errData = await res.json();
+                                errMsg = errData.detail || errMsg;
+                            } catch (e) {}
+                        } else {
+                            errMsg = `Connection Error (${res.status}): The backend API server could not be reached. Make sure your backend API is deployed and the API_URL environment variable is set in Netlify.`;
+                        }
+                        throw new Error(errMsg);
                     }
 
-                    const data = await res.json();
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        throw new Error('The server returned an invalid response format.');
+                    }
                     
                     // Store token & enforcer details in sessionStorage
                     sessionStorage.setItem('session_token', data.session_token);
