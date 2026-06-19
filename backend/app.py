@@ -101,6 +101,7 @@ hotspots_lookup_df = None
 def load_data_cache():
     global DATA_CACHE, violation_types_cache, hotspots_lookup_df
     import pandas as pd
+    import pyarrow.parquet as pq
     
     clean_path = os.path.join(project_root, "data", "violations_clean.parquet")
     hotspots_path = os.path.join(project_root, "data", "hotspots_scored.parquet")
@@ -108,15 +109,11 @@ def load_data_cache():
     recs_path = os.path.join(project_root, "data", "camera_recommendations.parquet")
     long_parquet = os.path.join(project_root, "data", "violations_tags_long.parquet")
     
-    # 1. Load clean violations
-    if os.path.exists(clean_path):
-        try:
-            DATA_CACHE["clean_df"] = pd.read_parquet(clean_path)
-            print(f"Successfully cached violations_clean.parquet: {len(DATA_CACHE['clean_df'])} rows")
-        except Exception as e:
-            print(f"Error caching clean parquet: {e}")
+    # We do NOT cache clean_df or long_df in memory to save ~300MB RAM.
+    DATA_CACHE["clean_df"] = None
+    DATA_CACHE["long_df"] = None
             
-    # 2. Load hotspots
+    # 1. Cache hotspots (small dataset: ~500 rows)
     if os.path.exists(hotspots_path):
         try:
             DATA_CACHE["hotspots_df"] = pd.read_parquet(hotspots_path)
@@ -125,7 +122,7 @@ def load_data_cache():
         except Exception as e:
             print(f"Error caching hotspots parquet: {e}")
 
-    # 3. Load calendar
+    # 2. Cache calendar (small dataset: ~10 rows)
     if os.path.exists(calendar_path):
         try:
             DATA_CACHE["calendar_df"] = pd.read_parquet(calendar_path)
@@ -133,7 +130,7 @@ def load_data_cache():
         except Exception as e:
             print(f"Error caching calendar parquet: {e}")
 
-    # 4. Load camera recommendations
+    # 3. Cache camera recommendations (small dataset)
     if os.path.exists(recs_path):
         try:
             DATA_CACHE["camera_recs_df"] = pd.read_parquet(recs_path)
@@ -141,14 +138,15 @@ def load_data_cache():
         except Exception as e:
             print(f"Error caching camera recs parquet: {e}")
 
-    # 5. Load long format violations
+    # 4. Extract unique violation types without loading the full 21MB long parquet file
     if os.path.exists(long_parquet):
         try:
-            DATA_CACHE["long_df"] = pd.read_parquet(long_parquet)
-            violation_types_cache = sorted([str(x) for x in DATA_CACHE["long_df"]['violation_type'].dropna().unique() if str(x).strip() != ''])
-            print(f"Successfully cached violations_tags_long.parquet: {len(DATA_CACHE['long_df'])} rows")
+            table = pq.read_table(long_parquet, columns=['violation_type'])
+            unique_types = table['violation_type'].unique().to_pylist()
+            violation_types_cache = sorted([str(x) for x in unique_types if x is not None and str(x).strip() != ''])
+            print(f"Successfully cached {len(violation_types_cache)} violation types from metadata.")
         except Exception as e:
-            print(f"Error caching long format parquet: {e}")
+            print(f"Error reading unique violation types: {e}")
             violation_types_cache = sorted(list(VIOLATION_CODE_MAP.keys()))
     else:
         violation_types_cache = sorted(list(VIOLATION_CODE_MAP.keys()))
@@ -344,24 +342,20 @@ def get_kpi_summary(
     clean_path = os.path.join(project_root, "data", "violations_clean.parquet")
     hotspots_path = os.path.join(project_root, "data", "hotspots_scored.parquet")
     
-    df_clean = DATA_CACHE["clean_df"]
-    df_hot = DATA_CACHE["hotspots_df"]
+    import pyarrow.parquet as pq
     
-    if df_clean is None or df_hot is None:
-        if not os.path.exists(clean_path) or not os.path.exists(hotspots_path):
-            raise HTTPException(status_code=404, detail="Cleaned violations or hotspots scored data not found.")
-        try:
-            if df_clean is None:
-                df_clean = pd.read_parquet(clean_path)
-            if df_hot is None:
-                df_hot = pd.read_parquet(hotspots_path)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error reading datasets: {e}")
+    if not os.path.exists(clean_path) or not os.path.exists(hotspots_path):
+        raise HTTPException(status_code=404, detail="Cleaned violations or hotspots scored data not found.")
         
     try:
+        # Use pyarrow ParquetFile metadata to get the row count instantly with ZERO memory footprint
+        file = pq.ParquetFile(clean_path)
+        total_violations = file.metadata.num_rows
         
-        # 1. Total violations analyzed (Cleaned records count)
-        total_violations = len(df_clean)
+        # hotspots_df is small (~500 rows) and is cached in memory
+        df_hot = DATA_CACHE["hotspots_df"]
+        if df_hot is None:
+            df_hot = pd.read_parquet(hotspots_path)
         
         # 2. Hotspots count above the congestion_cost_score threshold
         hotspots_above = int((df_hot['congestion_cost_score'] >= congestion_threshold).sum())
@@ -713,15 +707,22 @@ def api_mark_paid(fine_id: int, current_user: dict = Depends(require_auth)):
 def get_vehicle_history(vehicle_number: str, current_user: dict = Depends(require_auth)):
     """Retrieves violation history timeline for a specific vehicle number."""
     clean_parquet_path = os.path.join(project_root, "data", "violations_clean.parquet")
-    df = DATA_CACHE["clean_df"]
-    if df is None:
-        if not os.path.exists(clean_parquet_path):
-            raise HTTPException(status_code=404, detail="Clean violations data not found.")
-        try:
-            df = pd.read_parquet(clean_parquet_path)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error reading history: {e}")
+    if not os.path.exists(clean_parquet_path):
+        raise HTTPException(status_code=404, detail="Clean violations data not found.")
+        
     try:
+        import pyarrow.parquet as pq
+        # Use pyarrow dataset filters to read ONLY the matching rows for this vehicle number.
+        # This prevents loading the 20MB file into memory.
+        v_upper = vehicle_number.strip().upper()
+        table = pq.read_table(
+            clean_parquet_path,
+            filters=[
+                [('vehicle_number', '==', v_upper)],
+                [('updated_vehicle_number', '==', v_upper)]
+            ]
+        )
+        df = table.to_pandas()
         # Resolve vehicle id column checking fallback
         df['veh_id'] = df['updated_vehicle_number'].fillna(df['vehicle_number']).astype(str).str.strip().str.upper()
         
