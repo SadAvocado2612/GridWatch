@@ -1,0 +1,20 @@
+[
+    {
+        "badge_id": "BTP001",
+        "name": "Officer Rao",
+        "station": "Indiranagar Station",
+        "password": "$2b$12$jpSf.Bwg4w9Irh5B5wveM.AwGikYjiRhkJlixWTcs0NlI0.k2EDj6"
+    },
+    {
+        "badge_id": "BTP002",
+        "name": "Officer Gowda",
+        "station": "Safina Plaza Station",
+        "password": "$2b$12$46hwHAOuLX9OyoH9SNXLleoBuuZAfJE2UlMRgj4tJwvVb8i9cEnzC"
+    },
+    {
+        "badge_id": "BTP003",
+        "name": "Officer Reddy",
+        "station": "Anand Rao Circle Station",
+        "password": "$2b$12$qtwk3i8El/KXvSbNksvaNetncqjyeE0xmM6W4MoPVuo/EwjKmRdwq"
+    }
+]

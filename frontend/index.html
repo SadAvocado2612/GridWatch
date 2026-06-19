@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        if (sessionStorage.getItem('session_token')) {
+            window.location.replace("analysis.html");
+        } else {
+            window.location.replace("login.html");
+        }
+    </script>
+</head>
+<body>
+    Redirecting...
+</body>
+</html>

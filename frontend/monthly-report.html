@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GridWatch Monthly Enforcement Audit Report Summary.">
+    <title>Monthly Enforcement Report — GridWatch</title>
+    
+    <!-- Shared theme CSS -->
+    <link rel="stylesheet" href="shared/theme.css">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* General layout styles for screen viewing */
+        body {
+            background-color: var(--bg-light, #f9f9f9);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            min-height: 100vh;
+        }
+
+        /* Printable area wrapper on screen */
+        .report-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 40px 0;
+            background-color: var(--bg-white, #ffffff);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color, #e5e5e5);
+            padding: 60px;
+        }
+
+        /* Cover Page Styling */
+        .cover-page {
+            height: 100%;
+            min-height: 800px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding-bottom: 80px;
+        }
+
+        .cover-top {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 120px;
+        }
+
+        .cover-logo-accent {
+            width: 8px;
+            height: 36px;
+            background-color: var(--primary-color, #a91d22);
+        }
+
+        .cover-brand-title {
+            font-family: var(--font-serif);
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .cover-brand-subtitle {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+            margin-top: 4px;
+        }
+
+        .cover-middle {
+            margin-bottom: 160px;
+        }
+
+        .report-meta-tag {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--primary-color, #a91d22);
+            letter-spacing: 0.1em;
+            margin-bottom: 12px;
+        }
+
+        .cover-title {
+            font-family: var(--font-serif);
+            font-size: 44px;
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .cover-period {
+            font-size: 20px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .cover-bottom {
+            border-top: 1px solid var(--border-color);
+            padding-top: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .cover-author {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Section layout */
+        .report-section {
+            margin-bottom: 60px;
+        }
+
+        .section-header {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 24px;
+        }
+
+        .section-num {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--primary-color, #a91d22);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+        }
+
+        .section-title {
+            font-family: var(--font-serif);
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        /* KPI summary section */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 30px;
+        }
+
+        .kpi-card {
+            background-color: var(--bg-light, #f9f9f9);
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 12px;
+        }
+
+        .kpi-value {
+            font-family: var(--font-serif);
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .kpi-change {
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .kpi-change.up {
+            color: #2e7d32; /* Green for good indicators (approval rate up, violations down? Wait, we will map colors logically in JS) */
+        }
+
+        .kpi-change.down {
+            color: #c62828; /* Red for bad indicators */
+        }
+
+        /* Takeaways styling */
+        .takeaway-box {
+            background-color: #fbfbfb;
+            border-left: 3px solid var(--primary-color);
+            padding: 16px 20px;
+            font-size: 13.5px;
+            line-height: 1.5;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+
+        .takeaway-label {
+            font-family: var(--font-sans);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            font-style: normal;
+        }
+
+        /* Chart Canvas containers */
+        .chart-wrapper {
+            width: 100%;
+            height: 320px;
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Tables section styling */
+        .tables-container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .table-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            font-family: var(--font-serif);
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+        }
+
+        .report-table th, .report-table td {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .report-table th {
+            background-color: var(--bg-neutral-dark, #1e293b);
+            color: var(--bg-white, #ffffff);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .report-table tr:nth-child(even) {
+            background-color: var(--bg-light, #f9f9f9);
+        }
+
+        .num-cell {
+            text-align: right;
+        }
+
+        /* Bullet lists for recommendations */
+        .rec-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 20px;
+            list-style: none;
+            padding: 0;
+        }
+
+        .rec-item {
+            background-color: var(--bg-light, #f9f9f9);
+            border: 1px solid var(--border-color);
+            padding: 16px 20px;
+            border-radius: 2px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .rec-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rec-target {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .rec-metrics {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: #ffffff;
+            padding: 3px 8px;
+            border: 1px solid var(--border-color);
+            font-weight: 500;
+        }
+
+        .rec-action {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* Disclaimer footer note */
+        .disclaimer-note {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 24px;
+            margin-top: 80px;
+            font-style: italic;
+        }
+
+        /* Floating action buttons */
+        .controls-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        .control-btn {
+            background-color: var(--primary-color, #a91d22);
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-sans);
+            transition: background-color 0.2s;
+        }
+
+        .control-btn:hover {
+            background-color: var(--primary-hover, #d32f2f);
+        }
+
+        .control-btn.secondary {
+            background-color: var(--bg-neutral-dark, #1e293b);
+        }
+
+        .control-btn.secondary:hover {
+            background-color: #0f172a;
+        }
+
+        /* Print Specific Styling overrides */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+
+            .controls-panel {
+                display: none !important;
+            }
+
+            .report-container {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+
+            .report-page {
+                page-break-before: always !important;
+                break-before: page !important;
+                padding: 40px 0 !important;
+            }
+
+            /* Prevent page break on the very first page (Cover Page) */
+            .report-page:first-child {
+                page-break-before: avoid !important;
+                break-before: avoid !important;
+                padding-top: 0 !important;
+            }
+
+            /* Keep table headers and rows together */
+            tr {
+                page-break-inside: avoid !important;
+            }
+
+            /* Preserve exact color rendering */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Print Floating Buttons -->
+    <div class="controls-panel no-print">
+        <button class="control-btn secondary" onclick="window.close()">
+            Close Report
+        </button>
+        <button class="control-btn" id="btn-print-report" onclick="window.print()">
+            Print / Save as PDF
+        </button>
+    </div>
+
+    <!-- Main Printable Document Container -->
+    <div class="report-container">
+        
+        <!-- PAGE 1: COVER PAGE -->
+        <div class="report-page cover-page">
+            <div class="cover-top">
+                <div class="cover-logo-accent"></div>
+                <div>
+                    <div class="cover-brand-title">GridWatch</div>
+                    <div class="cover-brand-subtitle">Municipal Enforcement Division</div>
+                </div>
+            </div>
+            
+            <div class="cover-middle">
+                <div class="report-meta-tag">Audit Analysis Summary</div>
+                <h1 class="cover-title">Monthly Traffic Violation &amp;<br>Enforcement Report</h1>
+                <div class="cover-period" id="report-cover-period">Loading report period...</div>
+            </div>
+            
+            <div class="cover-bottom">
+                <div>
+                    <div>Prepared by: <span class="cover-author">Bengaluru Traffic Police platform</span></div>
+                    <div>Distribution: Municipal Roadway &amp; Parking Enforcement Inspectors</div>
+                </div>
+                <div id="report-generation-time">
+                    Generated: --
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 2: KPI SUMMARY OVERVIEW -->
+        <div class="report-page report-section" id="section-kpi">
+            <div class="section-header">
+                <div class="section-num">01 / Performance Summary</div>
+                <h2 class="section-title">Key Performance Indicators</h2>
+            </div>
+            
+            <div class="takeaway-box" id="kpi-takeaway">
+                <div class="takeaway-label">Enforcement Summary Outlook</div>
+                Gathering performance data to generate summary analytics...
+            </div>
+            
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Violations Analyzed</div>
+                    <div class="kpi-value" id="val-total-violations">--</div>
+                    <div class="kpi-change" id="change-violations">--</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-label">Validation Approval Rate</div>
+                    <div class="kpi-value" id="val-approval-rate">--</div>
+                    <div class="kpi-change" id="change-approval">--</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-label">Outstanding Fines</div>
+                    <div class="kpi-value" id="val-outstanding-fines">--</div>
+                    <div class="kpi-change" style="color: var(--text-muted);">Unpaid Balance</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-label">Collected Fines</div>
+                    <div class="kpi-value" id="val-collected-fines">--</div>
+                    <div class="kpi-change" style="color: var(--text-muted);">Paid Balance</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 3: CHART 1 - DAILY VIOLATIONS TREND -->
+        <div class="report-page report-section" id="section-chart-daily">
+            <div class="section-header">
+                <div class="section-num">02 / Temporal Distribution</div>
+                <h2 class="section-title">Daily Violation Incident Trends</h2>
+            </div>
+            
+            <div class="takeaway-box" id="daily-takeaway">
+                <div class="takeaway-label">Daily Takeaway Outlook</div>
+                Analyzing daily activity profile to formulate summaries...
+            </div>
+            
+            <div class="chart-wrapper">
+                <canvas id="chart-daily-violations"></canvas>
+            </div>
+        </div>
+
+        <!-- PAGE 4: CHART 2 - INCIDENTS BY VEHICLE TYPE -->
+        <div class="report-page report-section" id="section-chart-vehicle">
+            <div class="section-header">
+                <div class="section-num">03 / Vehicle Profiling</div>
+                <h2 class="section-title">Infractions by Vehicle Categories</h2>
+            </div>
+            
+            <div class="takeaway-box" id="vehicle-takeaway">
+                <div class="takeaway-label">Vehicle Analysis Outlook</div>
+                Profiling vehicle metrics for classification...
+            </div>
+            
+            <div class="chart-wrapper">
+                <canvas id="chart-vehicle-breakdown"></canvas>
+            </div>
+        </div>
+
+        <!-- PAGE 5: CHART 3 - HOURLY INCIDENT DISTRIBUTION -->
+        <div class="report-page report-section" id="section-chart-hourly">
+            <div class="section-header">
+                <div class="section-num">04 / Hourly Distribution</div>
+                <h2 class="section-title">Hourly Incident Load Profile</h2>
+            </div>
+            
+            <div class="takeaway-box" id="hourly-takeaway">
+                <div class="takeaway-label">Hourly Takeaway Outlook</div>
+                Extracting diurnal variations to establish scheduling advice...
+            </div>
+            
+            <div class="chart-wrapper">
+                <canvas id="chart-hourly-distribution"></canvas>
+            </div>
+        </div>
+
+        <!-- PAGE 6: CHART 4 - HIGH-DENSITY LOCATION HOTSPOTS -->
+        <div class="report-page report-section" id="section-chart-hotspots">
+            <div class="section-header">
+                <div class="section-num">05 / Spatial Density</div>
+                <h2 class="section-title">Highest-Density Junction Hotspots</h2>
+            </div>
+            
+            <div class="takeaway-box" id="hotspots-takeaway">
+                <div class="takeaway-label">Hotspot Density Outlook</div>
+                Computing geospatial density scores for major crossings...
+            </div>
+            
+            <div class="chart-wrapper">
+                <canvas id="chart-hotspots-density"></canvas>
+            </div>
+        </div>
+
+        <!-- PAGE 7: HOTSPOTS & FINES AUDIT TABLES -->
+        <div class="report-page report-section" id="section-tables">
+            <div class="section-header">
+                <div class="section-num">06 / Ledger Summaries</div>
+                <h2 class="section-title">Enforcement Analytics Ledger</h2>
+            </div>
+            
+            <div class="tables-container">
+                <div>
+                    <h3 class="table-title">Top 10 High-Density Violation Hotspots</h3>
+                    <table class="report-table" id="table-hotspots">
+                        <thead>
+                            <tr>
+                                <th>Junction Name</th>
+                                <th class="num-cell" style="width: 100px;">Violations</th>
+                                <th class="num-cell" style="width: 130px;">Congestion Index</th>
+                                <th class="num-cell" style="width: 130px;">Est. Cost (INR)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-hotspots-body">
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-muted);">Loading hotspots data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div>
+                    <h3 class="table-title">Automated Repeat Offender Fines Summary</h3>
+                    <table class="report-table" id="table-fines">
+                        <thead>
+                            <tr>
+                                <th>Metric Detail Description</th>
+                                <th class="num-cell" style="width: 200px;">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-fines-body">
+                            <tr>
+                                <td colspan="2" style="text-align: center; color: var(--text-muted);">Loading fines summary...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PAGE 8: RECOMMENDATIONS NEXT MONTH -->
+        <div class="report-page report-section" id="section-recommendations">
+            <div class="section-header">
+                <div class="section-num">07 / Actionable Directives</div>
+                <h2 class="section-title">Recommended Spatial-Temporal Focus (Next Month)</h2>
+            </div>
+            
+            <p style="font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 20px;">
+                The recurrence model has compiled forecast profiles identifying nodes where illegal parking exhibits a high spatial-temporal recurrence score. Deploying active patrols and automated camera validation filters to these nodes will produce the greatest traffic congestion relief.
+            </p>
+            
+            <ul class="rec-list" id="recommendations-list">
+                <li style="text-align: center; color: var(--text-muted); list-style: none;">Loading focus areas...</li>
+            </ul>
+            
+            <div class="disclaimer-note">
+                <strong>Simulated Data Advisory Notice:</strong> SMS delivery logs, verification timestamps, and notification logs are created for prototype demonstration. No real SMS messages have been sent, and all phone configurations referenced throughout the portal remain simulated.
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Application script -->
+    <script src="monthly-report.js"></script>
+</body>
+</html>

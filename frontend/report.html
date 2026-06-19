@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (!sessionStorage.getItem('session_token')) {
+            window.location.replace('login.html');
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Report a traffic violation - GridWatch Bengaluru">
+    <title>Report Violation — GridWatch Audit</title>
+    
+    <!-- Google Fonts: Fraunces (Serif Heading) & Inter (Sans Body/Data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Shared theme -->
+    <link rel="stylesheet" href="shared/theme.css">
+    
+    <style>
+        body {
+            background-color: var(--bg-light);
+            overflow-y: auto; /* Allow Y scroll for the form */
+            height: 100vh;
+        }
+
+        .report-workspace {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            width: 100%;
+        }
+
+        .report-card {
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            padding: 40px;
+            width: 100%;
+            max-width: 680px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .report-header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+        }
+
+        .report-title {
+            font-family: var(--font-serif);
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .report-subtitle {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+        }
+
+        .success-banner {
+            display: none;
+            background-color: #eef8f0;
+            color: #2e7d32;
+            border: 1px solid #d1e7dd;
+            padding: 16px;
+            font-size: 13.5px;
+            font-weight: 600;
+        }
+        
+        .success-banner a {
+            color: var(--primary-color);
+            text-decoration: underline;
+            margin-left: 8px;
+            font-weight: 700;
+        }
+        
+        .error-banner {
+            display: none;
+            background-color: #fdf2f2;
+            color: var(--primary-color);
+            border: 1px solid #fecaca;
+            padding: 16px;
+            font-size: 13.5px;
+            font-weight: 600;
+        }
+
+        .form-row.split {
+            display: flex;
+            gap: 20px;
+        }
+
+        .form-row.split .form-field {
+            flex: 1;
+        }
+
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 16px;
+            max-height: 180px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-light);
+            padding: 12px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .checkbox-item:hover {
+            color: var(--text-primary);
+        }
+
+        .checkbox-item input {
+            accent-color: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+            background-color: var(--bg-light);
+            border-bottom: 2px solid var(--border-color);
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .file-upload-wrapper:hover {
+            background-color: #f0f0f0;
+            color: var(--text-primary);
+        }
+
+        .file-upload-wrapper input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .smooth-marker {
+            animation: bounceIn 0.3s ease-out;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="editorial-container">
+        <!-- Shared Navigation Bar -->
+        <div id="app-nav"></div>
+
+        <!-- Scrollable Workspace -->
+        <div class="report-workspace">
+            <div class="report-card">
+                <div class="report-header">
+                    <h2 class="report-title">Log New Violation</h2>
+                    <span class="report-subtitle">Enforcement Log & Analysis Update</span>
+                </div>
+
+                <!-- Action Banners -->
+                <div class="success-banner" id="success-banner">
+                    Violation logged and analysis updated. 
+                    <a href="#" id="view-analysis-link">View on Analysis map &rarr;</a>
+                </div>
+                <div class="error-banner" id="error-banner"></div>
+
+                <!-- Violation Form -->
+                <form class="editorial-form" id="violation-form" style="border: none; padding: 0;" onsubmit="return false;">
+                    
+                    <!-- Location Pinpointing -->
+                    <div class="form-field" style="margin-bottom: 16px;">
+                        <label class="field-label" style="font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">1. Tap Map to Pinpoint Location</label>
+                        <div id="report-map" style="height: 250px; width: 100%; border: 1px solid var(--border-color); margin-bottom: 12px; z-index: 10;"></div>
+                        
+                        <div class="form-row split">
+                            <div class="form-field">
+                                <label class="field-label" for="latitude">Latitude</label>
+                                <input type="text" id="latitude" class="form-input" placeholder="Tap on map..." readonly required>
+                            </div>
+                            <div class="form-field">
+                                <label class="field-label" for="longitude">Longitude</label>
+                                <input type="text" id="longitude" class="form-input" placeholder="Tap on map..." readonly required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row" style="margin-top: 12px;">
+                            <div class="form-field">
+                                <label class="field-label" for="location">Location / Landmark Address (Optional)</label>
+                                <input type="text" id="location" class="form-input" placeholder="e.g. Opposite Indiranagar Metro Metro Pillar 110">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vehicle Information -->
+                    <div class="form-row split" style="margin-bottom: 16px;">
+                        <div class="form-field">
+                            <label class="field-label" for="vehicle-number" style="font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">2. Vehicle Number</label>
+                            <input type="text" id="vehicle-number" class="form-input" placeholder="e.g. KA03HA1234" required>
+                        </div>
+                        <div class="form-field">
+                            <label class="field-label" for="vehicle-type" style="font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">3. Vehicle Type</label>
+                            <div class="select-wrapper">
+                                <select id="vehicle-type" class="form-select" style="padding-right: 30px;" required>
+                                    <option value="" disabled selected>Select type</option>
+                                    <option value="CAR">CAR</option>
+                                    <option value="SCOOTER">SCOOTER</option>
+                                    <option value="MOTOR CYCLE">MOTOR CYCLE</option>
+                                    <option value="PASSENGER AUTO">PASSENGER AUTO</option>
+                                    <option value="MAXI-CAB">MAXI-CAB</option>
+                                    <option value="VAN">VAN</option>
+                                    <option value="LGV">LGV</option>
+                                    <option value="GOODS AUTO">GOODS AUTO</option>
+                                    <option value="MOPED">MOPED</option>
+                                    <option value="PRIVATE BUS">PRIVATE BUS</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Junction Name -->
+                    <div class="form-row" style="margin-bottom: 16px;">
+                        <div class="form-field">
+                            <label class="field-label" for="junction-name" style="font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">4. Junction Name (Optional)</label>
+                            <input type="text" id="junction-name" class="form-input" placeholder="e.g. Trinity Junction (defaults to 'No Junction')">
+                        </div>
+                    </div>
+
+                    <!-- Violation Types checkboxes -->
+                    <div class="form-field" style="margin-bottom: 16px;">
+                        <label class="field-label" style="font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">5. Violation Categories (Select at least one)</label>
+                        <div class="checkbox-grid" id="violation-types-container">
+                            <span style="font-size: 12px; color: var(--text-muted); padding: 8px;">Loading categories...</span>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-field" style="margin-bottom: 16px;">
+                        <label class="field-label" for="description" style="font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">6. Infraction Description</label>
+                        <textarea id="description" class="form-input" style="height: 80px; resize: none; font-family: var(--font-sans);" placeholder="e.g. Double parked near junction block corner, restricting traffic turning footprint."></textarea>
+                    </div>
+
+                    <!-- Photo Upload Evidence -->
+                    <div class="form-field" style="margin-bottom: 24px;">
+                        <label class="field-label" style="font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">7. Evidence Photograph (Optional)</label>
+                        <div class="file-upload-wrapper">
+                            <span id="file-label">Choose image file...</span>
+                            <input type="file" id="photo-upload" accept="image/*">
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button class="btn-primary" id="btn-submit-violation" style="padding: 14px 20px; font-size: 13px;">Submit Infraction Report</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="shared/nav.js"></script>
+    <script src="report.js"></script>
+</body>
+</html>

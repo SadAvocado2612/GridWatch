@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GridWatch - Municipal enforcer authentication login portal.">
+    <title>Login — GridWatch Audit</title>
+    
+    <!-- Link to shared theme styles -->
+    <link rel="stylesheet" href="shared/theme.css">
+    
+    <style>
+        body {
+            background-color: var(--bg-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            overflow: hidden;
+        }
+        
+        .login-card {
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        
+        .login-header {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+        }
+        
+        .login-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .login-logo .logo-accent {
+            width: 4px;
+            height: 20px;
+            background-color: var(--primary-color);
+        }
+        
+        .login-logo .logo-text {
+            font-family: var(--font-serif);
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        
+        .login-subtitle {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+        }
+        
+        .error-container {
+            display: none;
+            background-color: #fdf2f2;
+            color: var(--primary-color);
+            border: 1px solid #fecaca;
+            padding: 10px 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-logo">
+                <div class="logo-accent"></div>
+                <span class="logo-text">GridWatch</span>
+            </div>
+            <span class="login-subtitle">Municipal Enforcer Portal</span>
+        </div>
+        
+        <!-- Error Message Display -->
+        <div class="error-container" id="error-container">
+            Invalid Badge ID or Password.
+        </div>
+        
+        <!-- Login Form -->
+        <form class="editorial-form" id="login-form" style="border: none; padding: 0;" onsubmit="return false;">
+            <div class="form-row">
+                <div class="form-field">
+                    <label class="field-label" for="badge-id">Badge ID</label>
+                    <input type="text" id="badge-id" class="form-input" placeholder="e.g. BTP001" required autocomplete="username">
+                </div>
+            </div>
+            
+            <div class="form-row" style="margin-top: 8px;">
+                <div class="form-field">
+                    <label class="field-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+            </div>
+            
+            <button class="btn-primary" id="btn-login" style="margin-top: 16px;">Sign In</button>
+        </form>
+    </div>
+
+    <!-- Application Script -->
+    <script src="login.js"></script>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (!sessionStorage.getItem('session_token')) {
+            window.location.replace('login.html');
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GridWatch - AI-powered traffic violation analytics platform for Bengaluru. Hotspot detection, patrol routing, and camera gap analysis.">
+    <title>GridWatch — Real-Time Traffic Violation Audit</title>
+    
+    <!-- Google Fonts: Fraunces (Serif Heading) & Inter (Sans Body/Data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet.js CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- D3.js for Force-Directed Graph -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <!-- Local Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="editorial-container">
+        <!-- Shared Navigation Bar Injected Here -->
+        <div id="app-nav"></div>
+
+
+        <!-- Asymmetric Editorial Grid Workspace -->
+        <main class="editorial-workspace">
+            
+            <!-- Left Side: Editorial Report & Controls -->
+            <section class="editorial-column">
+                
+                <!-- Table of Contents Navigation Index -->
+                <nav class="editorial-toc">
+                    <button class="tab-btn active" data-tab="tab-predict" id="btn-tab-predict">
+                        <span class="toc-num">01</span>
+                        <span class="toc-title">Forecast</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-patrol" id="btn-tab-patrol">
+                        <span class="toc-num">02</span>
+                        <span class="toc-title">Dispatch</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-cameras" id="btn-tab-cameras">
+                        <span class="toc-num">03</span>
+                        <span class="toc-title">Coverage</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-simulate" id="btn-tab-simulate">
+                        <span class="toc-num">04</span>
+                        <span class="toc-title">Dynamics</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-offenders" id="btn-tab-offenders">
+                        <span class="toc-num">05</span>
+                        <span class="toc-title">Offenders</span>
+                    </button>
+                    <button class="tab-btn" data-tab="tab-reports" id="btn-tab-reports">
+                        <span class="toc-num">06</span>
+                        <span class="toc-title">Reports</span>
+                    </button>
+                </nav>
+
+                <!-- Dynamic Content Sections -->
+                <div class="report-content-panel">
+                    
+                    <!-- Section 01: Forecast -->
+                    <div class="tab-panel active" id="tab-predict">
+                        <div class="section-meta">Chapter 01 / Predictive Analysis</div>
+                        <h2 class="section-heading">Predictive Calendar</h2>
+                        <p class="section-description">
+                            Identifies and prioritizes enforcement windows based on spatial clusters displaying a historical recurrence probability of 50% or higher.
+                        </p>
+                        
+                        <div class="editorial-form">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label class="field-label" for="predict-day">Target Weekday</label>
+                                    <div class="select-wrapper">
+                                        <select id="predict-day" class="form-select">
+                                            <option value="Monday">Monday</option>
+                                            <option value="Tuesday">Tuesday</option>
+                                            <option value="Wednesday">Wednesday</option>
+                                            <option value="Thursday">Thursday</option>
+                                            <option value="Friday">Friday</option>
+                                            <option value="Saturday">Saturday</option>
+                                            <option value="Sunday">Sunday</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <div class="slider-header">
+                                        <label class="field-label" for="predict-hour">Hour of Day</label>
+                                        <span id="predict-hour-val" class="time-badge">8 AM</span>
+                                    </div>
+                                    <input type="range" id="predict-hour" min="0" max="23" value="8" class="form-range">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="results-container">
+                            <h3 class="results-title">Peak Violation Targets</h3>
+                            <div class="ledger-list" id="calendar-list">
+                                <div class="ledger-placeholder">
+                                    Use filters above to view peak violation windows.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 02: Dispatch -->
+                    <div class="tab-panel" id="tab-patrol">
+                        <div class="section-meta">Chapter 02 / Resource Optimization</div>
+                        <h2 class="section-heading">Patrol Dispatcher</h2>
+                        <p class="section-description">
+                            Calculates sequential patrol routing schedules for multiple enforcement units using a greedy nearest-neighbor algorithm based on Haversine distance.
+                        </p>
+                        
+                        <div class="editorial-form">
+                            <div class="form-row split">
+                                <div class="form-field">
+                                    <label class="field-label" for="patrol-day">Target Weekday</label>
+                                    <div class="select-wrapper">
+                                        <select id="patrol-day" class="form-select">
+                                            <option value="Monday">Monday</option>
+                                            <option value="Tuesday">Tuesday</option>
+                                            <option value="Wednesday">Wednesday</option>
+                                            <option value="Thursday">Thursday</option>
+                                            <option value="Friday">Friday</option>
+                                            <option value="Saturday">Saturday</option>
+                                            <option value="Sunday">Sunday</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-field width-limited">
+                                    <label class="field-label" for="patrol-units">Available Units</label>
+                                    <input type="number" id="patrol-units" min="1" max="10" value="3" class="form-input">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <div class="slider-header">
+                                        <label class="field-label" for="patrol-hour">Hour of Day</label>
+                                        <span id="patrol-hour-val" class="time-badge">8 AM</span>
+                                    </div>
+                                    <input type="range" id="patrol-hour" min="0" max="23" value="8" class="form-range">
+                                </div>
+                            </div>
+                            
+                            <button class="btn-primary" id="btn-generate-routes">Generate Patrol Plan</button>
+                        </div>
+
+                        <div class="results-container">
+                            <h3 class="results-title" id="patrol-list-title">Optimized Timeline Routes</h3>
+                            <div class="ledger-list" id="routes-list">
+                                <div class="ledger-placeholder">
+                                    Define unit availability and click "Generate Patrol Plan" to construct routes.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 03: Coverage -->
+                    <div class="tab-panel" id="tab-cameras">
+                        <div class="section-meta">Chapter 03 / Infrastructure Coverage</div>
+                        <h2 class="section-heading">Camera Placement</h2>
+                        <p class="section-description">
+                            Recommends optimal placements for monitoring hardware by isolating severe violation hotspots located more than 300 meters from any existing camera device.
+                        </p>
+                        
+                        <div class="editorial-form toggle-box">
+                            <div class="toggle-row">
+                                <span class="toggle-label">Show Recommendations Layer</span>
+                                <label class="editorial-switch">
+                                    <input type="checkbox" id="toggle-camera-layer" checked>
+                                    <span class="switch-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="results-container">
+                            <h3 class="results-title">Identified Coverage Gaps</h3>
+                            <div class="ledger-list" id="camera-recs-list">
+                                <div class="ledger-placeholder">
+                                    Detecting infrastructure blind spots...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 04: Dynamics -->
+                    <div class="tab-panel" id="tab-simulate">
+                        <div class="section-meta">Chapter 04 / Micro-Simulation</div>
+                        <h2 class="section-heading">Traffic Flow Simulator</h2>
+                        <p class="section-description">
+                            Simulates the physical impact of illegal parking on road capacity. Calculates real-time delay factors based on standard BPR road-obstructive delay equations.
+                        </p>
+                        
+                        <!-- Empty State / Instructions -->
+                        <div id="simulation-instructions" class="ledger-placeholder italic">
+                            Select an active hotspot node on the spatial map and click <strong>"Simulate Impact"</strong> inside the popup to activate the simulation engine.
+                        </div>
+                        
+                        <!-- Simulation Workspace -->
+                        <div id="simulation-controls" style="display: none;">
+                            <div class="active-node-badge">
+                                <span class="badge-label">Active Node</span>
+                                <div id="sim-hotspot-name" class="badge-title">--</div>
+                            </div>
+                            
+                            <div class="editorial-form toggle-box margin-bottom">
+                                <div class="toggle-row">
+                                    <span class="toggle-label">Obstruct Traffic (Illegal Parking)</span>
+                                    <label class="editorial-switch">
+                                        <input type="checkbox" id="toggle-sim-parking" checked>
+                                        <span class="switch-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Real-time Flow Comparison Metrics -->
+                            <div class="flow-metrics-row">
+                                <div class="metric-node">
+                                    <div class="metric-node-val" id="metric-without">0</div>
+                                    <div class="metric-node-lbl">Normal Throughput (Veh/Min)</div>
+                                </div>
+                                <div class="metric-node highlight">
+                                    <div class="metric-node-val" id="metric-with">0</div>
+                                    <div class="metric-node-lbl">Obstructed Throughput (Veh/Min)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Simulation Canvas Container -->
+                        <div id="sim-canvas-container" style="display: none;" class="canvas-viewport">
+                            <canvas id="sim-canvas"></canvas>
+                        </div>
+                        
+                        <!-- Diagnostic Report -->
+                        <div id="sim-analysis-container" style="display: none;" class="results-container">
+                            <div class="diagnosis-card">
+                                <div class="diagnosis-header">
+                                    <h4 class="diagnosis-title">Obstructive Impact Diagnosis</h4>
+                                    <span id="sim-cap-loss-badge" class="severity-indicator">--</span>
+                                </div>
+                                <div class="diagnosis-body" id="sim-analysis-text">
+                                    Waiting for diagnostic parameters...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 05: Offenders Network -->
+                    <div class="tab-panel" id="tab-offenders">
+                        <div class="section-meta">Chapter 05 / Repeat Offender Intelligence</div>
+                        <h2 class="section-heading">Offender Network</h2>
+                        <p class="section-description">
+                            Maps relationships between repeat violators and hotspot clusters. Identifies habitual offenders who concentrate at single locations and roaming offenders who operate across the city.
+                        </p>
+                        
+
+                        <!-- Detail Side Panel -->
+                        <div class="offender-detail-panel" id="offender-detail-panel" style="display: none;">
+                            <div class="detail-panel-header">
+                                <h4 class="detail-panel-title" id="detail-panel-title">--</h4>
+                                <button class="detail-panel-close" id="detail-panel-close">&times;</button>
+                            </div>
+                            <div class="detail-panel-body" id="detail-panel-body"></div>
+                        </div>
+
+                        <!-- Top Offenders Table -->
+                        <div class="results-container">
+                            <h3 class="results-title">Top Repeat Offenders</h3>
+                            <div class="offender-table-wrap">
+                                <table class="offender-table" id="offender-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="center-header">#</th>
+                                            <th>Vehicle ID</th>
+                                            <th class="num-header">Violations</th>
+                                            <th class="num-header">Clusters</th>
+                                            <th class="num-header">Days</th>
+                                            <th>Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="offender-table-body">
+                                        <tr><td colspan="6" class="ledger-placeholder">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Section 06: Reports -->
+                    <div class="tab-panel" id="tab-reports">
+                        <div class="section-meta">Chapter 06 / Monthly Summaries</div>
+                        <h2 class="section-heading">Monthly Audit Reports</h2>
+                        <p class="section-description">
+                            Compile and download a comprehensive monthly enforcement report containing activity trends, vehicle type distributions, hotspot congestion metrics, validation rates, fine summaries, and predictive suggestions.
+                        </p>
+                        
+                        <div class="editorial-form">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label class="field-label" for="report-month">Report Month</label>
+                                    <div class="select-wrapper">
+                                        <select id="report-month" class="form-select">
+                                            <option value="1">January</option>
+                                            <option value="2">February</option>
+                                            <option value="3" selected>March</option>
+                                            <option value="4">April</option>
+                                            <option value="5">May</option>
+                                            <option value="6">June</option>
+                                            <option value="7">July</option>
+                                            <option value="8">August</option>
+                                            <option value="9">September</option>
+                                            <option value="10">October</option>
+                                            <option value="11">November</option>
+                                            <option value="12">December</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label class="field-label" for="report-year">Report Year</label>
+                                    <div class="select-wrapper">
+                                        <select id="report-year" class="form-select">
+                                            <option value="2023">2023</option>
+                                            <option value="2024" selected>2024</option>
+                                            <option value="2025">2025</option>
+                                            <option value="2026">2026</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button class="btn-primary" id="btn-generate-report" style="width: 100%; margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                                <div class="loading-spinner" id="report-spinner" style="display: none; width: 14px; height: 14px; border-width: 1.5px; border-top-color: #ffffff; margin: 0;"></div>
+                                <span id="btn-report-text">Generate Report</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Right Side: Framed Map & Graph View -->
+            <section class="editorial-visuals">
+                <!-- Compact KPI Metrics Panel -->
+                <div class="analysis-metrics-panel">
+                    <div class="analysis-metric-card" id="kpi-card-violations">
+                        <span class="metric-value animate-num" id="kpi-total">--</span>
+                        <span class="metric-label">Violations Analyzed</span>
+                    </div>
+                    <div class="analysis-metric-card" id="kpi-card-hotspots">
+                        <span class="metric-value animate-num" id="kpi-hotspots">--</span>
+                        <span class="metric-label">Active Hotspots</span>
+                    </div>
+                    <div class="analysis-metric-card" id="kpi-card-delay">
+                        <span class="metric-value animate-num" id="kpi-delay">--</span>
+                        <span class="metric-label">Est. Delay Saved (Min)</span>
+                    </div>
+                    <div class="analysis-metric-card" id="kpi-card-backlog">
+                        <span class="metric-value" id="kpi-backlog">--</span>
+                        <span class="metric-label">Backlog Reduction</span>
+                    </div>
+                </div>
+
+                <div class="map-frame" id="map-frame-container">
+                    <div id="map"></div>
+                </div>
+
+                
+                <div class="map-frame" id="graph-frame-container" style="display: none;">
+                    <div id="offender-graph-container" style="width: 100%; height: 100%; position: relative;">
+                        <!-- Network Graph Legend -->
+                        <div class="network-legend" style="position: absolute; top: 12px; left: 12px; z-index: 10; background: rgba(255, 255, 255, 0.95); padding: 8px 12px; border: 1px solid #e5e5e5; display: flex; gap: 12px; margin: 0;">
+                            <div class="legend-item"><span class="legend-dot" style="background:#a91d22;"></span>Habitual</div>
+                            <div class="legend-item"><span class="legend-dot" style="background:#d96b27;"></span>Roaming</div>
+                            <div class="legend-item"><span class="legend-dot" style="background:#6b7280;"></span>Mixed</div>
+                            <div class="legend-item"><span class="legend-dot cluster-dot" style="background:#1e293b;"></span>Cluster</div>
+                        </div>
+                        
+                        <svg id="offender-graph-svg" style="width: 100%; height: 100%; display: block;"></svg>
+                        
+                        <div class="graph-placeholder" id="graph-placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                            Loading offender network...
+                        </div>
+                    </div>
+                </div>
+                
+                <figcaption class="visual-caption" id="caption-figure-1">
+                    <span class="caption-lead">Figure 1.0 /</span> Spatial distribution of traffic violation density clusters, optimized route dispatches, and infrastructure blind spots in Bengaluru.
+                </figcaption>
+                <figcaption class="visual-caption" id="caption-figure-2" style="display: none;">
+                    <span class="caption-lead">Figure 2.0 – Offender Network Graph /</span> Visual network layout mapping vehicles with repeat violations and their spatial interaction across city hotspots.
+                </figcaption>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Shared Navigation component script -->
+    <script src="shared/nav.js"></script>
+
+    <!-- Application Logic -->
+    <script src="analysis.js"></script>
+    <script src="simulation.js"></script>
+    <script src="offenders.js"></script>
+</body>
+</html>

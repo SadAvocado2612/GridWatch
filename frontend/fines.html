@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        if (!sessionStorage.getItem('session_token')) {
+            window.location.replace('login.html');
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GridWatch - Automated Fines & Penalty management. Scan and notify repeat parking offenders.">
+    <title>Fines Management — GridWatch Audit</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,400&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Shared theme and layout -->
+    <link rel="stylesheet" href="shared/theme.css">
+    
+    <style>
+        body {
+            background-color: var(--bg-light);
+            overflow-y: auto;
+            height: 100vh;
+        }
+
+        .fines-workspace {
+            display: flex;
+            flex-direction: column;
+            padding: 40px;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 24px;
+        }
+
+        /* Warning notice banner */
+        .demo-warning-banner {
+            background-color: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-left: 4px solid #d97706;
+            padding: 14px 20px;
+            color: #b45309;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Summary counters strip */
+        .summary-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .summary-card {
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .summary-num {
+            font-family: var(--font-serif);
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .summary-label {
+            font-size: 9.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+        }
+
+        /* Toolbar controls */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            padding: 16px 24px;
+            gap: 16px;
+        }
+
+        .filter-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.04em;
+        }
+
+        .filter-select {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            font-size: 12.5px;
+            font-weight: 600;
+            background-color: var(--bg-light);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .filter-select:focus {
+            border-color: var(--primary-color);
+        }
+
+        /* Table styles */
+        .fines-table-container {
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .fines-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13.5px;
+        }
+
+        .fines-table th {
+            background-color: var(--bg-light);
+            border-bottom: 2px solid var(--border-color);
+            padding: 14px 20px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.08em;
+        }
+
+        .fines-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-family: var(--font-sans);
+        }
+
+        .fines-table tr.fine-row {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .fines-table tr.fine-row:hover {
+            background-color: var(--bg-light);
+        }
+
+        .fines-table tr.fine-row.expanded {
+            background-color: #fafafa;
+        }
+
+        .vehicle-cell {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .status-pill {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 2px;
+            letter-spacing: 0.05em;
+        }
+
+        .status-pill.paid {
+            background-color: #eef8f0;
+            color: #2e7d32;
+            border: 1px solid #d1e7dd;
+        }
+
+        .status-pill.unpaid {
+            background-color: #fdf2f2;
+            color: var(--primary-color);
+            border: 1px solid #fecaca;
+        }
+
+        /* Detail expanded row */
+        .detail-row {
+            display: none;
+            background-color: #fafafa;
+        }
+
+        .detail-row.active {
+            display: table-row;
+        }
+
+        .detail-container {
+            padding: 24px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            border-left: 4px solid var(--border-color);
+        }
+
+        .detail-row.active .detail-container {
+            border-left-color: var(--primary-color);
+        }
+
+        .detail-sections {
+            display: grid;
+            grid-template-columns: 1.2fr 2fr;
+            gap: 32px;
+        }
+
+        .detail-sms-box {
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+        }
+
+        .detail-sms-header {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .detail-sms-body {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #374151;
+            background-color: #f3f4f6;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: var(--font-sans);
+            border: 1px solid #e5e7eb;
+        }
+
+        .detail-history-box {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .detail-history-title {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.06em;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .history-table th {
+            padding: 6px 12px;
+            background-color: #eaeaea;
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #dcdcdc;
+            text-align: left;
+        }
+
+        .history-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eaeaea;
+            color: var(--text-secondary);
+            background-color: var(--bg-white);
+        }
+
+        /* Action buttons styling */
+        .btn-action-reminder {
+            font-family: var(--font-sans);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background-color: var(--primary-color);
+            color: var(--bg-white);
+            border: none;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action-reminder:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .link-mark-paid {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-decoration: underline;
+            margin-left: 12px;
+            cursor: pointer;
+        }
+
+        .link-mark-paid:hover {
+            color: var(--primary-color);
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background-color: #1e293b;
+            color: #ffffff;
+            padding: 16px 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 13px;
+            display: none;
+            z-index: 2000;
+            max-width: 380px;
+            border-left: 4px solid var(--primary-color);
+            animation: slideIn 0.25s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="editorial-container">
+        <!-- Shared Navigation -->
+        <div id="app-nav"></div>
+
+        <!-- Fines Workspace -->
+        <div class="fines-workspace">
+            
+            <!-- Simulated Notice Banner -->
+            <div class="demo-warning-banner">
+                <span>⚠️ Phone numbers and SMS delivery on this page are simulated for this prototype demo — no real messages are sent.</span>
+            </div>
+
+            <!-- Summary Strip -->
+            <section class="summary-strip">
+                <div class="summary-card">
+                    <span class="summary-num" id="summary-total-fines">--</span>
+                    <span class="summary-label">Total Fines Issued</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-num" id="summary-outstanding-amount">₹--</span>
+                    <span class="summary-label">Outstanding Amount</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-num" id="summary-collected-amount">₹--</span>
+                    <span class="summary-label">Collected Amount</span>
+                </div>
+                <div class="summary-card">
+                    <span class="summary-num" id="summary-repeat-offenders">--</span>
+                    <span class="summary-label">Offenders Flagged</span>
+                </div>
+            </section>
+
+            <!-- Controls Toolbar -->
+            <section class="toolbar">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label class="filter-label" for="filter-status">Status</label>
+                        <select id="filter-status" class="filter-select">
+                            <option value="all">All Fines</option>
+                            <option value="unpaid">Unpaid</option>
+                            <option value="paid">Paid</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label" for="sort-by">Sort By</label>
+                        <select id="sort-by" class="filter-select">
+                            <option value="amount-desc">Fine Amount (High to Low)</option>
+                            <option value="amount-asc">Fine Amount (Low to High)</option>
+                            <option value="count-desc">Violation Count (High to Low)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button class="btn-primary" id="btn-bulk-reminders" style="width: auto; margin-top: 0; padding: 10px 24px; font-size: 11px; background-color: var(--text-secondary);">Bulk Send Reminders</button>
+                    <button class="btn-primary" id="btn-scan-offenders" style="width: auto; margin-top: 0; padding: 10px 24px; font-size: 11px;">Scan for Repeat Offenders</button>
+                </div>
+            </section>
+
+            <!-- Fines Table -->
+            <section class="fines-table-container">
+                <table class="fines-table" id="fines-table">
+                    <thead>
+                        <tr>
+                            <th>Vehicle Number</th>
+                            <th>Type</th>
+                            <th>Violations</th>
+                            <th>Amount</th>
+                            <th>Phone (Simulated)</th>
+                            <th>Status</th>
+                            <th>Last Reminder</th>
+                            <th>Reminders</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fines-table-body">
+                        <tr>
+                            <td colspan="9" class="ledger-placeholder" style="text-align: center; padding: 30px;">Loading fine records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </div>
+
+    <!-- Toast SMS Container -->
+    <div class="toast" id="sms-toast">
+        <strong style="display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Simulated SMS Sent</strong>
+        <span id="sms-toast-text"></span>
+    </div>
+
+    <!-- Scripts -->
+    <script src="shared/nav.js"></script>
+    <script src="fines.js"></script>
+</body>
+</html>
