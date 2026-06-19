@@ -13,7 +13,6 @@ Urban centers globally suffer from severe traffic bottlenecking, driven heavily 
 *   **Camera Placement Gap Analysis**: To maximize camera coverage, the platform conducts spatial gap analysis, flagging spots further than 300 meters from current surveillance devices. It recommends optimal placement coordinates separated by a minimum buffer zone.
 *   **Validation Triage Classifier**: An integrated Machine Learning classifier predicts ticket approval rates. This categorizes low-risk tickets for automated batch processing, reducing manual auditing backlog.
 *   **Repeat-Offender Network**: A visual relation network map links habitual vehicle license plates to specific violation hotspots. Planners can identify "habitual" localized offenders versus "roaming" violators across the city.
-*   **Displacement Detection**: By observing adjacent cluster density shifts post-patrol, the platform tracks spatial displacement. This verifies if violations are deterred or simply pushed to neighboring streets.
 *   **Automatic Scaling Fines with Simulated Notifications**: The platform implements an escalating penalty schema for repeat offenders, increasing fines by ₹100 for each offense beyond a repeat threshold. It features bulk simulation of SMS warnings sent to registered vehicle owners.
 *   **Monthly Reports**: Users can generate print-ready Monthly Audit summaries. The browser compiles clean multi-page document layouts containing activity trends, top hotspots tables, and automated fine tallies using standard CSS print rules.
 ---
