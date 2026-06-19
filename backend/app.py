@@ -86,35 +86,72 @@ VIOLATION_CODE_MAP = {
     'WRONG PARKING': 112
 }
 
+DATA_CACHE = {
+    "clean_df": None,
+    "hotspots_df": None,
+    "calendar_df": None,
+    "camera_recs_df": None,
+    "long_df": None
+}
+
 violation_types_cache = []
 hotspots_lookup_df = None
 
 @app.on_event("startup")
-def load_report_metadata():
-    global violation_types_cache, hotspots_lookup_df
+def load_data_cache():
+    global DATA_CACHE, violation_types_cache, hotspots_lookup_df
     import pandas as pd
     
-    # 1. Load unique violation types from tags long parquet
+    clean_path = os.path.join(project_root, "data", "violations_clean.parquet")
+    hotspots_path = os.path.join(project_root, "data", "hotspots_scored.parquet")
+    calendar_path = os.path.join(project_root, "data", "predictive_calendar.parquet")
+    recs_path = os.path.join(project_root, "data", "camera_recommendations.parquet")
     long_parquet = os.path.join(project_root, "data", "violations_tags_long.parquet")
+    
+    # 1. Load clean violations
+    if os.path.exists(clean_path):
+        try:
+            DATA_CACHE["clean_df"] = pd.read_parquet(clean_path)
+            print(f"Successfully cached violations_clean.parquet: {len(DATA_CACHE['clean_df'])} rows")
+        except Exception as e:
+            print(f"Error caching clean parquet: {e}")
+            
+    # 2. Load hotspots
+    if os.path.exists(hotspots_path):
+        try:
+            DATA_CACHE["hotspots_df"] = pd.read_parquet(hotspots_path)
+            hotspots_lookup_df = DATA_CACHE["hotspots_df"][['representative_lat', 'representative_lon', 'police_station']].dropna()
+            print(f"Successfully cached hotspots_scored.parquet: {len(DATA_CACHE['hotspots_df'])} rows")
+        except Exception as e:
+            print(f"Error caching hotspots parquet: {e}")
+
+    # 3. Load calendar
+    if os.path.exists(calendar_path):
+        try:
+            DATA_CACHE["calendar_df"] = pd.read_parquet(calendar_path)
+            print(f"Successfully cached predictive_calendar.parquet: {len(DATA_CACHE['calendar_df'])} rows")
+        except Exception as e:
+            print(f"Error caching calendar parquet: {e}")
+
+    # 4. Load camera recommendations
+    if os.path.exists(recs_path):
+        try:
+            DATA_CACHE["camera_recs_df"] = pd.read_parquet(recs_path)
+            print(f"Successfully cached camera_recommendations.parquet: {len(DATA_CACHE['camera_recs_df'])} rows")
+        except Exception as e:
+            print(f"Error caching camera recs parquet: {e}")
+
+    # 5. Load long format violations
     if os.path.exists(long_parquet):
         try:
-            df = pd.read_parquet(long_parquet)
-            violation_types_cache = sorted([str(x) for x in df['violation_type'].dropna().unique() if str(x).strip() != ''])
-            print(f"Successfully cached {len(violation_types_cache)} violation types.")
+            DATA_CACHE["long_df"] = pd.read_parquet(long_parquet)
+            violation_types_cache = sorted([str(x) for x in DATA_CACHE["long_df"]['violation_type'].dropna().unique() if str(x).strip() != ''])
+            print(f"Successfully cached violations_tags_long.parquet: {len(DATA_CACHE['long_df'])} rows")
         except Exception as e:
-            print(f"Error loading violation types from parquet: {e}")
+            print(f"Error caching long format parquet: {e}")
             violation_types_cache = sorted(list(VIOLATION_CODE_MAP.keys()))
     else:
         violation_types_cache = sorted(list(VIOLATION_CODE_MAP.keys()))
-        
-    # 2. Load hotspots coordinates for police station lookup
-    hotspots_path = os.path.join(project_root, "data", "hotspots_scored.parquet")
-    if os.path.exists(hotspots_path):
-        try:
-            hotspots_lookup_df = pd.read_parquet(hotspots_path)[['representative_lat', 'representative_lon', 'police_station']].dropna()
-            print(f"Successfully cached {len(hotspots_lookup_df)} hotspots for spatial police station lookup.")
-        except Exception as e:
-            print(f"Error loading hotspots lookup df: {e}")
 
 @app.on_event("startup")
 def load_triage_stats():
@@ -170,10 +207,15 @@ def get_me(current_user: dict = Depends(require_auth)):
 def get_hotspots(current_user: dict = Depends(require_auth)):
     """Lists all clustered hotspots along with their congestion scores."""
     hotspots_path = os.path.join(project_root, "data", "hotspots_scored.parquet")
-    if not os.path.exists(hotspots_path):
-        raise HTTPException(status_code=404, detail="Hotspots scored data not found. Run congestion_score.py first.")
+    df = DATA_CACHE["hotspots_df"]
+    if df is None:
+        if not os.path.exists(hotspots_path):
+            raise HTTPException(status_code=404, detail="Hotspots scored data not found. Run congestion_score.py first.")
+        try:
+            df = pd.read_parquet(hotspots_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading hotspots data: {e}")
     try:
-        df = pd.read_parquet(hotspots_path)
         # Convert NaN/NaT values to None to ensure valid JSON serialization
         df = df.replace({pd.NA: None, np.nan: None})
         
@@ -207,7 +249,7 @@ def get_hotspots(current_user: dict = Depends(require_auth)):
             records.append(clean_r)
         return records
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading hotspots data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing hotspots data: {e}")
 
 @app.get("/api/predictive-calendar")
 def get_predictive_calendar(
@@ -217,10 +259,15 @@ def get_predictive_calendar(
 ):
     """Retrieves predicted enforcement windows, optionally filtered by day of week and hour."""
     calendar_path = os.path.join(project_root, "data", "predictive_calendar.parquet")
-    if not os.path.exists(calendar_path):
-        raise HTTPException(status_code=404, detail="Predictive calendar data not found. Run recurrence_mining.py first.")
+    df = DATA_CACHE["calendar_df"]
+    if df is None:
+        if not os.path.exists(calendar_path):
+            raise HTTPException(status_code=404, detail="Predictive calendar data not found. Run recurrence_mining.py first.")
+        try:
+            df = pd.read_parquet(calendar_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading predictive calendar: {e}")
     try:
-        df = pd.read_parquet(calendar_path)
         if day_of_week:
             df = df[df['day_of_week'].str.lower() == day_of_week.lower()]
         if hour is not None:
@@ -228,7 +275,7 @@ def get_predictive_calendar(
         df = df.replace({pd.NA: None, np.nan: None})
         return df.to_dict(orient="records")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading predictive calendar: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing predictive calendar: {e}")
 
 @app.get("/api/patrol-plan")
 def get_patrol_plan(
@@ -269,14 +316,19 @@ def get_patrol_plan(
 def get_camera_recommendations(current_user: dict = Depends(require_auth)):
     """Lists camera recommendations for monitored coverage gaps."""
     recs_path = os.path.join(project_root, "data", "camera_recommendations.parquet")
-    if not os.path.exists(recs_path):
-        raise HTTPException(status_code=404, detail="Camera recommendations data not found. Run camera_placement.py first.")
+    df = DATA_CACHE["camera_recs_df"]
+    if df is None:
+        if not os.path.exists(recs_path):
+            raise HTTPException(status_code=404, detail="Camera recommendations data not found. Run camera_placement.py first.")
+        try:
+            df = pd.read_parquet(recs_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading camera recommendations: {e}")
     try:
-        df = pd.read_parquet(recs_path)
         df = df.replace({pd.NA: None, np.nan: None})
         return df.to_dict(orient="records")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reading camera recommendations: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing camera recommendations: {e}")
 
 @app.get("/api/triage-stats")
 def get_triage_stats(current_user: dict = Depends(require_auth)):
@@ -292,12 +344,21 @@ def get_kpi_summary(
     clean_path = os.path.join(project_root, "data", "violations_clean.parquet")
     hotspots_path = os.path.join(project_root, "data", "hotspots_scored.parquet")
     
-    if not os.path.exists(clean_path) or not os.path.exists(hotspots_path):
-        raise HTTPException(status_code=404, detail="Cleaned violations or hotspots scored data not found.")
+    df_clean = DATA_CACHE["clean_df"]
+    df_hot = DATA_CACHE["hotspots_df"]
+    
+    if df_clean is None or df_hot is None:
+        if not os.path.exists(clean_path) or not os.path.exists(hotspots_path):
+            raise HTTPException(status_code=404, detail="Cleaned violations or hotspots scored data not found.")
+        try:
+            if df_clean is None:
+                df_clean = pd.read_parquet(clean_path)
+            if df_hot is None:
+                df_hot = pd.read_parquet(hotspots_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading datasets: {e}")
         
     try:
-        df_clean = pd.read_parquet(clean_path)
-        df_hot = pd.read_parquet(hotspots_path)
         
         # 1. Total violations analyzed (Cleaned records count)
         total_violations = len(df_clean)
@@ -429,7 +490,9 @@ def report_violation(req: ViolationReportRequest, current_user: dict = Depends(r
     # Append to data/violations_clean.parquet
     clean_parquet_path = os.path.join(project_root, "data", "violations_clean.parquet")
     try:
-        df_clean = pd.read_parquet(clean_parquet_path)
+        df_clean = DATA_CACHE["clean_df"]
+        if df_clean is None:
+            df_clean = pd.read_parquet(clean_parquet_path)
         new_row_df = pd.DataFrame([cleaned_record])
         # Ensure identical column ordering
         new_row_df = new_row_df[df_clean.columns]
@@ -442,7 +505,9 @@ def report_violation(req: ViolationReportRequest, current_user: dict = Depends(r
     long_parquet_path = os.path.join(project_root, "data", "violations_tags_long.parquet")
     if os.path.exists(long_parquet_path):
         try:
-            df_long = pd.read_parquet(long_parquet_path)
+            df_long = DATA_CACHE["long_df"]
+            if df_long is None:
+                df_long = pd.read_parquet(long_parquet_path)
             new_row_exploded = new_row_df.explode(['violation_type', 'offence_code'])
             new_row_exploded = new_row_exploded[df_long.columns]
             df_combined_long = pd.concat([df_long, new_row_exploded], ignore_index=True)
@@ -474,8 +539,8 @@ def report_violation(req: ViolationReportRequest, current_user: dict = Depends(r
         run_congestion_scoring(clean_parquet_path, scored_parquet_path)
         run_recurrence_mining(clean_parquet_path, scored_parquet_path, calendar_parquet_path)
         
-        # Also reload metadata for cache updates
-        load_report_metadata()
+        # Reload cache to update in-memory tables
+        load_data_cache()
         recomputed = True
     except Exception as e:
         print(f"Warning: Failed to run analysis recompute: {e}")
@@ -648,11 +713,15 @@ def api_mark_paid(fine_id: int, current_user: dict = Depends(require_auth)):
 def get_vehicle_history(vehicle_number: str, current_user: dict = Depends(require_auth)):
     """Retrieves violation history timeline for a specific vehicle number."""
     clean_parquet_path = os.path.join(project_root, "data", "violations_clean.parquet")
-    if not os.path.exists(clean_parquet_path):
-        raise HTTPException(status_code=404, detail="Clean violations data not found.")
-        
+    df = DATA_CACHE["clean_df"]
+    if df is None:
+        if not os.path.exists(clean_parquet_path):
+            raise HTTPException(status_code=404, detail="Clean violations data not found.")
+        try:
+            df = pd.read_parquet(clean_parquet_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error reading history: {e}")
     try:
-        df = pd.read_parquet(clean_parquet_path)
         # Resolve vehicle id column checking fallback
         df['veh_id'] = df['updated_vehicle_number'].fillna(df['vehicle_number']).astype(str).str.strip().str.upper()
         
